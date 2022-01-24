@@ -70,6 +70,7 @@ public class LoginForm  extends JDialog {
             pst.setString(2, password);
             ResultSet resultSet = pst.executeQuery();
 
+
             if (resultSet.next()) {
                 user = new User();
                 user.name = resultSet.getString("name");
