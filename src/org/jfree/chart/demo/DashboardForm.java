@@ -6,27 +6,29 @@ import java.sql.*;
 import net.proteanit.sql.DbUtils;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
-import java.util.Calendar;
 
 public class DashboardForm extends JFrame {
     private JPanel dashboardPanel;
-    private JPanel header;
     private JLabel userNameTxt;
     private JLabel balanceTxt;
     private JTable incomeTable;
     private JButton saveBtn;
     private JTextField nameTxt;
-    private JTextField categoryTxt;
     private JTextField valueTxt;
     private JTable expensesTable;
     private JTextField dateTxt;
     private JButton deleteBtn;
     private JButton searchBtn;
-    private JPanel balance;
     private JButton previousBtn;
     private JButton nextBtn;
     private JTextField idTxt;
     private JLabel dateHeaderTxt;
+    private JLabel incomeTxt;
+    private JLabel expensesTxt;
+    private JComboBox typeBox;
+    private JPanel header;
+    private JPanel balance;
+
 
     int month, year, incomeBalance, expensesBalance, monthBalance;
     String monthStr, yearStr;
@@ -74,39 +76,37 @@ public class DashboardForm extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
 
-                String name, category, value, date;
+                String name, value, date;
+                int type;
 
                 name = nameTxt.getText();
-                category = categoryTxt.getText();
+                type = typeBox.getSelectedIndex();
                 value = valueTxt.getText();
                 date = dateTxt.getText();
+                System.out.println("Type: " + type);
 
                 try {
-                    if (category.equals("1") || category.equals("6")) {
-                        pst = con.prepareStatement("insert into actions (idUser, name, actionType, value, idCategory, date) values (1, ?, 1, ?, ?, ?)");
+                    if (type == 0) {
+                        pst = con.prepareStatement("insert into actions (idUser, name, actionType, value, date) values (1, ?, 1, ?, ?)");
                         pst.setString(1, name);
                         pst.setString(2, value);
-                        pst.setString(3, category);
-                        pst.setString(4, date);
+                        pst.setString(3, date);
                         pst.executeUpdate();
                         JOptionPane.showMessageDialog(null, "Record Added!");
                         incomeLoad(month, year);
                         nameTxt.setText("");
-                        categoryTxt.setText("");
                         valueTxt.setText("");
                         dateTxt.setText("");
 
                     } else {
-                        pst = con.prepareStatement("insert into actions (idUser, name, actionType, value, idCategory, date) values (1, ?, 2, ?, ?, ?)");
+                        pst = con.prepareStatement("insert into actions (idUser, name, actionType, value, date) values (1, ?, 2, ?, ?)");
                         pst.setString(1, name);
                         pst.setString(2, value);
-                        pst.setString(3, category);
-                        pst.setString(4, date);
+                        pst.setString(3, date);
                         pst.executeUpdate();
                         JOptionPane.showMessageDialog(null, "Record Added!");
                         expensesLoad(month, year);
                         nameTxt.setText("");
-                        categoryTxt.setText("");
                         valueTxt.setText("");
                         dateTxt.setText("");
                     }
@@ -134,7 +134,6 @@ public class DashboardForm extends JFrame {
                     expensesLoad(month, year);
                     incomeLoad(month, year);
                     nameTxt.setText("");
-                    categoryTxt.setText("");
                     valueTxt.setText("");
                     dateTxt.setText("");
                 } catch (SQLException e1) {
@@ -150,24 +149,21 @@ public class DashboardForm extends JFrame {
 
                 try {
                     String id = idTxt.getText();
-                    pst = con.prepareStatement("select name, idCategory, value, date from actions where idAction = ?");
+                    pst = con.prepareStatement("select name, value, date from actions where idAction = ?");
                     pst.setString(1, id);
                     ResultSet rs = pst.executeQuery();
 
                     if(rs.next() == true) {
                         String name = rs.getString(1);
-                        String idCategory = rs.getString(2);
-                        String value = rs.getString(3);
-                        String date = rs.getString(4);
+                        String value = rs.getString(2);
+                        String date = rs.getString(3);
                         nameTxt.setText(name);
-                        categoryTxt.setText(idCategory);
                         valueTxt.setText(value);
                         dateTxt.setText(date);
 
 
                     } else {
                         nameTxt.setText("");
-                        categoryTxt.setText("");
                         valueTxt.setText("");
                         dateTxt.setText("");
                         JOptionPane.showMessageDialog(null,"Invalid data!");
@@ -225,7 +221,7 @@ public class DashboardForm extends JFrame {
 
     void incomeLoad(int date, int year) {
         try {
-            pst = con.prepareStatement("select idAction, name, value, date from actions where actionType = 1 and month(date) =" + date + " and year(date) =" + year + "  order by date,value desc");
+            pst = con.prepareStatement("select idAction, name, value, date from actions where actionType = 1 and month(date) =" + date + " and year(date) =" + year + "  order by date desc,value desc");
             ResultSet rs = pst.executeQuery();
             incomeTable.setModel(DbUtils.resultSetToTableModel(rs));
             pst = con.prepareStatement("select SUM(value) from actions where actionType = 1 and month(date) =" + date + " and year(date) =" + year);
@@ -233,6 +229,7 @@ public class DashboardForm extends JFrame {
             rs2.next();
             incomeBalance = rs2.getInt(1);
             monthBalance = incomeBalance - expensesBalance;
+            incomeTxt.setText("INCOME:  " + incomeBalance);
             balanceTxt.setText("Balance: "+ monthBalance);
 
         } catch (SQLException ex) {
@@ -242,7 +239,7 @@ public class DashboardForm extends JFrame {
 
     void expensesLoad(int date, int year) {
         try {
-            pst = con.prepareStatement("select idAction, name, value, date from actions where actionType = 2 and month(date) =" + date + " and year(date) =" + year + " order by date,value desc");
+            pst = con.prepareStatement("select idAction, name, value, date from actions where actionType = 2 and month(date) =" + date + " and year(date) =" + year + " order by date desc,value desc");
             ResultSet rs = pst.executeQuery();
             expensesTable.setModel(DbUtils.resultSetToTableModel(rs));
             pst = con.prepareStatement("select SUM(value) from actions where actionType = 2 and month(date) =" + date + " and year(date) =" + year);
@@ -250,6 +247,7 @@ public class DashboardForm extends JFrame {
             rs2.next();
             expensesBalance = rs2.getInt(1);
             monthBalance = incomeBalance - expensesBalance;
+            expensesTxt.setText("EXPENSES:  " + expensesBalance);
             balanceTxt.setText("Balance: "+ monthBalance);
         } catch (SQLException ex) {
             ex.printStackTrace();
@@ -271,6 +269,16 @@ public class DashboardForm extends JFrame {
                     "password varchar(45) NOT NULL," +
                     "name varchar(45) NOT NULL," +
                     "isAdmin tinyint DEFAULT 0)");
+            pst.executeUpdate();
+
+            pst = con.prepareStatement("Create Table If Not Exists actions (" +
+                    "idAction int NOT NULL PRIMARY KEY AUTO_INCREMENT," +
+                    "idUser int NOT NULL," +
+                    "name varchar(45) NOT NULL," +
+                    "actionType int NOT NULL," +
+                    "value int NOT NULL," +
+                    "date date NOT NULL," +
+                    "FOREIGN KEY (idUser) REFERENCES users(id))");
             pst.executeUpdate();
 
             pst = con.prepareStatement("Select count(*) from users");
@@ -315,4 +323,7 @@ public class DashboardForm extends JFrame {
         DashboardForm dashForm = new DashboardForm();
     }
 
+    private void createUIComponents() {
+        // TODO: place custom component creation code here
+    }
 }
