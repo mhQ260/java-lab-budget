@@ -4,6 +4,9 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.*;
 import net.proteanit.sql.DbUtils;
+import java.time.format.DateTimeFormatter;
+import java.time.LocalDateTime;
+import java.util.Calendar;
 
 public class DashboardForm extends JFrame {
     private JPanel dashboardPanel;
@@ -20,18 +23,37 @@ public class DashboardForm extends JFrame {
     private JButton deleteBtn;
     private JButton searchBtn;
     private JPanel balance;
-    private JButton button1;
-    private JButton button2;
+    private JButton previousBtn;
+    private JButton nextBtn;
+    private JTextField idTxt;
+    private JLabel dateHeaderTxt;
+
+    int month, year, incomeBalance, expensesBalance, monthBalance;
+    String monthStr, yearStr;
 
     public DashboardForm() {
+
         setTitle("Budget-App Dashboard");
         setContentPane(dashboardPanel);
-        setMinimumSize(new Dimension(1400, 760));
+        setMinimumSize(new Dimension(1200, 680));
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
-        int month = 1;
-
         boolean hasRegisteredUsers = connectToDatabase();
+
+
+        String date = CurrentDateTime();
+        yearStr = date.substring(0,4);
+        year = Integer.parseInt(yearStr);
+        char ch = getChar(date,5);
+        String[] monthsTab = {"", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" };
+
+        if (ch == '0') {
+            monthStr = date.substring(6,7);
+        } else {
+            monthStr = date.substring(5,7);
+
+        }
+        month = Integer.parseInt(monthStr);
 
         if (hasRegisteredUsers) {
             LoginForm loginForm = new LoginForm(this);
@@ -40,7 +62,8 @@ public class DashboardForm extends JFrame {
             if (user != null) {
                 String userName = user.name;
                 userNameTxt.setText("Hello " + userName + "! ");
-//                balanceTxt.setText("+ 4250.00");
+                balanceTxt.setText("Balance: "+ incomeBalance);
+                dateHeaderTxt.setText("Available Budget in " +  monthsTab[month] + " " + year);
                 setLocationRelativeTo(null);
                 setVisible(true);
             } else {
@@ -67,7 +90,7 @@ public class DashboardForm extends JFrame {
                         pst.setString(4, date);
                         pst.executeUpdate();
                         JOptionPane.showMessageDialog(null, "Record Added!");
-                        incomeLoad(month);
+                        incomeLoad(month, year);
                         nameTxt.setText("");
                         categoryTxt.setText("");
                         valueTxt.setText("");
@@ -81,7 +104,7 @@ public class DashboardForm extends JFrame {
                         pst.setString(4, date);
                         pst.executeUpdate();
                         JOptionPane.showMessageDialog(null, "Record Added!");
-                        expensesLoad(month);
+                        expensesLoad(month, year);
                         nameTxt.setText("");
                         categoryTxt.setText("");
                         valueTxt.setText("");
@@ -94,32 +117,140 @@ public class DashboardForm extends JFrame {
             }
         });
 
-        incomeLoad(month);
-        expensesLoad(month);
+        incomeLoad(month, year);
+        expensesLoad(month, year);
         deleteBtn.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 String id;
+                id = idTxt.getText();
 
+                try {
+                    pst = con.prepareStatement("delete from actions where idAction = ?");
+                    pst.setString(1, id);
+
+                    pst.executeUpdate();
+                    JOptionPane.showMessageDialog(null, "Deleted!");
+                    expensesLoad(month, year);
+                    incomeLoad(month, year);
+                    nameTxt.setText("");
+                    categoryTxt.setText("");
+                    valueTxt.setText("");
+                    dateTxt.setText("");
+                } catch (SQLException e1) {
+                    e1.printStackTrace();
+                }
+
+            }
+        });
+
+        searchBtn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+                try {
+                    String id = idTxt.getText();
+                    pst = con.prepareStatement("select name, idCategory, value, date from actions where idAction = ?");
+                    pst.setString(1, id);
+                    ResultSet rs = pst.executeQuery();
+
+                    if(rs.next() == true) {
+                        String name = rs.getString(1);
+                        String idCategory = rs.getString(2);
+                        String value = rs.getString(3);
+                        String date = rs.getString(4);
+                        nameTxt.setText(name);
+                        categoryTxt.setText(idCategory);
+                        valueTxt.setText(value);
+                        dateTxt.setText(date);
+
+
+                    } else {
+                        nameTxt.setText("");
+                        categoryTxt.setText("");
+                        valueTxt.setText("");
+                        dateTxt.setText("");
+                        JOptionPane.showMessageDialog(null,"Invalid data!");
+                    }
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+            }
+        });
+        previousBtn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (month > 1) {
+                    month -= 1;
+                } else {
+                    year -= 1;
+                    month = 12;
+                }
+
+                dateHeaderTxt.setText("Available Budget in " + monthsTab[month] + " " + year);
+                incomeLoad(month, year);
+                expensesLoad(month, year);
+            }
+        });
+
+
+        nextBtn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (month < 12) {
+                    month += 1;
+                } else {
+                    year += 1;
+                    month = 1;
+                }
+
+                dateHeaderTxt.setText("Available Budget in " + monthsTab[month] + " " + year);
+                incomeLoad(month, year);
+                expensesLoad(month, year);
             }
         });
     }
 
-    void incomeLoad(int date) {
+    public String CurrentDateTime () {
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd");
+        LocalDateTime now = LocalDateTime.now();
+        String dateToReturn = (dtf.format(now));
+        return dateToReturn;
+    }
+
+    public static char getChar(String str, int index)
+    {
+        return str.charAt(index);
+    }
+
+    void incomeLoad(int date, int year) {
         try {
-            pst = con.prepareStatement("select idAction, name, value, date from actions where actionType = 1 and month(date) =" + date + "  order by date,value desc");
+            pst = con.prepareStatement("select idAction, name, value, date from actions where actionType = 1 and month(date) =" + date + " and year(date) =" + year + "  order by date,value desc");
             ResultSet rs = pst.executeQuery();
             incomeTable.setModel(DbUtils.resultSetToTableModel(rs));
+            pst = con.prepareStatement("select SUM(value) from actions where actionType = 1 and month(date) =" + date + " and year(date) =" + year);
+            ResultSet rs2 = pst.executeQuery();
+            rs2.next();
+            incomeBalance = rs2.getInt(1);
+            monthBalance = incomeBalance - expensesBalance;
+            balanceTxt.setText("Balance: "+ monthBalance);
+
         } catch (SQLException ex) {
             ex.printStackTrace();
         }
     }
 
-    void expensesLoad(int date) {
+    void expensesLoad(int date, int year) {
         try {
-            pst = con.prepareStatement("select idAction, name, value, date from actions where actionType = 2 and month(date) =" + date + " order by date,value desc");
+            pst = con.prepareStatement("select idAction, name, value, date from actions where actionType = 2 and month(date) =" + date + " and year(date) =" + year + " order by date,value desc");
             ResultSet rs = pst.executeQuery();
             expensesTable.setModel(DbUtils.resultSetToTableModel(rs));
+            pst = con.prepareStatement("select SUM(value) from actions where actionType = 2 and month(date) =" + date + " and year(date) =" + year);
+            ResultSet rs2 = pst.executeQuery();
+            rs2.next();
+            expensesBalance = rs2.getInt(1);
+            monthBalance = incomeBalance - expensesBalance;
+            balanceTxt.setText("Balance: "+ monthBalance);
         } catch (SQLException ex) {
             ex.printStackTrace();
         }
